@@ -15,8 +15,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "StreamIt", 
+  title: "StreamIt",
   description: "A full-stack video streaming platform built with Next.js and Express",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({ children }) {
@@ -29,7 +36,7 @@ export default function RootLayout({ children }) {
           <Navbar />
           {children}
         </AuthWrapper>
-        <Toaster position="bottom-right" /> 
+        <Toaster position="bottom-right" />
       </body>
     </html>
   );
