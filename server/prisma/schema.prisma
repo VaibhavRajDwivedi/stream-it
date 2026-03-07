@@ -1,0 +1,78 @@
+generator client {
+  provider        = "prisma-client-js"
+  // 1. Enable the extension feature
+  previewFeatures = ["postgresqlExtensions"] 
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  // 2. Explicitly declare every single Supabase background extension 
+  // so Prisma stops thinking the database is "corrupted" or "drifted".
+  extensions = [pg_graphql, pg_stat_statements, pgcrypto, supabase_vault, uuid_ossp(map: "uuid-ossp"), vector]
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  password     String
+  name         String?
+  videos       Video[]
+  comments     Comment[]
+  watchHistory WatchHistory[] 
+  reactions    Reaction[]
+}
+
+model Video {
+  id           String         @id @default(cuid())
+  title        String
+  description  String?
+  videoUrl     String
+  thumbnailUrl String
+  userId       String
+  user         User           @relation(fields: [userId], references: [id])
+  views        Int            @default(0)
+  comments     Comment[]
+  embedding    Unsupported("vector(384)")? 
+  watchHistory WatchHistory[] 
+  reactions    Reaction[]
+  createdAt    DateTime       @default(now())
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  text      String
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  video     Video    @relation(fields: [videoId], references: [id])
+}
+
+model WatchHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+
+  // onDelete: Cascade ensures that if a User or Video is deleted, 
+  // their watch history is cleanly wiped out too.
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+}
+
+
+model Reaction {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  type      String   // Will store "LIKE" or "DISLIKE"
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  // This ensures a user can only have ONE active reaction per video!
+  @@unique([userId, videoId]) 
+}
