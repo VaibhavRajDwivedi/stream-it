@@ -337,7 +337,7 @@ export default function Navbar() {
             >
               <input
                 type="text"
-                placeholder="Search videos, creators..."
+                placeholder="Search videos"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setFocused(true)}
