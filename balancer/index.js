@@ -5,7 +5,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const proxy = httpProxy.createProxyServer({});
+const proxy = httpProxy.createProxyServer({
+  xfwd: true // Enables X-Forwarded-For, letting Render see the unique client IPs
+});
 
 const ALL_SERVERS = [
   process.env.SERVER_1,
@@ -20,6 +22,8 @@ const checkServers = () => {
     if (!serverUrl) return; 
 
     const req = https.get(serverUrl, (res) => {
+      res.resume(); // Discard the body to free the socket and prevent memory/socket leaks
+
       // If Render returns a 5xx error, the server is down or sleeping
       if (res.statusCode >= 500) {
         if (activeServers.includes(serverUrl)) {
