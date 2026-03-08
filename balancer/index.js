@@ -17,21 +17,41 @@ let currentIndex = 0;
 
 const checkServers = () => {
   ALL_SERVERS.forEach((serverUrl) => {
-    if (!serverUrl) return; // Safety check
-    https.get(serverUrl, (res) => {
-      if (!activeServers.includes(serverUrl)) {
-        console.log(`[Health Check] Server recovered: ${serverUrl}`);
-        activeServers.push(serverUrl);
+    if (!serverUrl) return; 
+
+    const req = https.get(serverUrl, (res) => {
+      // If Render returns a 5xx error, the server is down or sleeping
+      if (res.statusCode >= 500) {
+        if (activeServers.includes(serverUrl)) {
+          console.log(`[Health Check] Server returning ${res.statusCode}: ${serverUrl}. Removing!`);
+          activeServers = activeServers.filter(s => s !== serverUrl);
+        }
+      } else {
+        // Any 2xx, 3xx, or 4xx means the Express app is successfully running
+        if (!activeServers.includes(serverUrl)) {
+          console.log(`[Health Check] Server recovered: ${serverUrl}`);
+          activeServers.push(serverUrl);
+        }
       }
-    }).on('error', (err) => {
+    });
+
+    // Catches network failures and our manual timeout destruction below
+    req.on('error', (err) => {
       if (activeServers.includes(serverUrl)) {
-        console.log(`[Health Check] Server died: ${serverUrl}. Removing from rotation!`);
+        console.log(`[Health Check] Server dead or sleeping: ${serverUrl}. Removing!`);
         activeServers = activeServers.filter(s => s !== serverUrl);
       }
+    });
+
+    // CRITICAL: If a Render server is sleeping, it hangs. 
+    // We give it 4 seconds to respond. If it doesn't, we consider it dead.
+    req.setTimeout(4000, () => {
+      req.destroy(); 
     });
   });
 };
 
+// Run the health check every 10 seconds
 setInterval(checkServers, 10000);
 
 // Prevent duplicate CORS headers from the backend
@@ -74,7 +94,7 @@ const server = http.createServer((req, res) => {
   currentIndex++;
 
   console.log(`[Load Balancer] Routing ${req.method} request to: ${target}`);
-  
+
   proxy.web(req, res, { target: target, changeOrigin: true });
 });
 
