@@ -12,7 +12,7 @@
 | **Backend** | Node.js, Express, Prisma ORM |
 | **Database** | PostgreSQL via Supabase (with pgvector) |
 | **Auth** | JSON Web Tokens (JWT), HTTP-only Cookies |
-| **Infra** | Netlify (client), Render (server), Custom Node.js Load Balancer |
+| **Infra** | Vercel (client), Render (server + balancer), Custom Node.js Load Balancer |
 
 ---
 
@@ -21,7 +21,8 @@
 ```
 streamit/
 ├── client/        # Next.js frontend application
-└── server/        # Express.js API, Prisma schema & load balancer
+├── server/        # Express.js API, Prisma schema
+└── balancer/      # Custom Node.js Layer 7 Load Balancer
 ```
 
 ---
@@ -33,7 +34,7 @@ streamit/
 - **Secure Cookie Storage** — Tokens stored in HTTP-only, `Secure`, `SameSite=none` cookies to prevent XSS and enable cross-domain auth
 - **User Registration & Login** — Dedicated auth flows with UI feedback
 - **Session Management** — Logout functionality and protected route middleware
-- **CORS** — Backend explicitly configured to accept requests from the designated frontend domain only
+- **CORS** — Handled directly at the Load Balancer edge to securely intercept and approve preflight requests from the Vercel frontend
 
 ### 🎥 Core Video Functionality
 - **Dynamic Video Feed** — "Recommended for You" homepage with a responsive video grid
@@ -57,12 +58,12 @@ streamit/
 - **State Management** — Client-side data fetching via React Hooks (`useState`, `useEffect`) and Axios
 
 ### ⚙️ Infrastructure & System Architecture
-- **Decoupled Monorepo** — Clean separation between the Next.js client and Express server
+- **Decoupled Monorepo** — Clean separation between the Next.js client, Express server, and load balancer
 - **Relational Database** — PostgreSQL on Supabase, accessed via Prisma ORM
-- **Custom Layer 7 Load Balancer** — A fully custom Node.js reverse proxy for local scaling and traffic distribution, featuring:
+- **Custom Layer 7 Load Balancer** — A fully custom Node.js reverse proxy for horizontal backend scaling, featuring:
   - **Round-Robin Routing** — Distributes traffic evenly across multiple backend instances
   - **Active Health Checking** — Automated node pinging to detect failures and remove dead servers from the pool
-  - **SSL Termination** — Decrypts HTTPS at the proxy layer and forwards plain HTTP internally
+  - **Secure Proxying** — Forwards traffic securely to HTTPS backend nodes while stripping duplicate headers
   - **Graceful Degradation** — Custom 502 Bad Gateway handling to prevent crashes on node failure
 
 ---
@@ -113,7 +114,7 @@ npm install
 Create a `.env.local` file in `/client`:
 
 ```env
-NEXT_PUBLIC_API_URL="http://localhost:4000/api"
+NEXT_PUBLIC_API_URL="http://localhost:4000"
 ```
 
 Start the dev server:
@@ -130,8 +131,9 @@ App runs at **http://localhost:3000**
 
 | Service | Platform |
 |---|---|
-| Backend (`/server`) | [Render](https://render.com) — deployed as a Web Service |
-| Frontend (`/client`) | [Netlify](https://netlify.com) or [Vercel](https://vercel.com) |
+| Frontend (`/client`) | [Vercel](https://vercel.com) |
+| Backend APIs (`/server`) | [Render](https://render.com) — 2 horizontally scaled Web Services |
+| Load Balancer (`/balancer`) | [Render](https://render.com) — Node.js Web Service |
 
 Cross-origin cookies and CORS are pre-configured for cross-domain production environments.
 
@@ -144,7 +146,7 @@ StreamIt ships with a custom Layer 7 Node.js reverse proxy for horizontal backen
 1. Distribute traffic via **round-robin**
 2. **Health-check** all nodes on an interval
 3. Automatically **remove failing nodes** from the pool
-4. Handle **SSL termination** at the proxy edge
+4. **Securely proxy** traffic to HTTPS backend nodes
 5. Return clean **502 errors** on full pool failure
 
 ---
