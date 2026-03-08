@@ -1,5 +1,5 @@
 import http from 'http';
-import https from 'https'; // Required for pinging Render's secure URLs
+import https from 'https';
 import httpProxy from 'http-proxy';
 import dotenv from 'dotenv';
 
@@ -7,28 +7,23 @@ dotenv.config();
 
 const proxy = httpProxy.createProxyServer({});
 
-// Master list of your upstream Render nodes
 const ALL_SERVERS = [
   process.env.SERVER_1,
   process.env.SERVER_2
 ];
 
-// Active rotation pool
 let activeServers = [...ALL_SERVERS]; 
 let currentIndex = 0;
 
-// Proactive health monitoring loop
 const checkServers = () => {
   ALL_SERVERS.forEach((serverUrl) => {
-    // We use https.get here because the target URLs are secure
+    if (!serverUrl) return; // Safety check
     https.get(serverUrl, (res) => {
-      // Reintegrate recovered nodes
       if (!activeServers.includes(serverUrl)) {
         console.log(`[Health Check] Server recovered: ${serverUrl}`);
         activeServers.push(serverUrl);
       }
     }).on('error', (err) => {
-      // Evict dead nodes to prevent routing errors
       if (activeServers.includes(serverUrl)) {
         console.log(`[Health Check] Server died: ${serverUrl}. Removing from rotation!`);
         activeServers = activeServers.filter(s => s !== serverUrl);
@@ -37,26 +32,17 @@ const checkServers = () => {
   });
 };
 
-// Check every 10 seconds (I increased this from 2s so Render doesn't flag you for a DDoS attack!)
 setInterval(checkServers, 10000);
 
-const server = http.createServer((req, res) => {
-  // Prevent unhandled errors when the pool is completely exhausted
-  if (activeServers.length === 0) {
-    res.writeHead(502, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ message: "CRITICAL: All backend servers are down!" }));
-  }
-
-  const target = activeServers[currentIndex % activeServers.length];
-  currentIndex++;
-
-  console.log(`[Load Balancer] Routing request to: ${target}`);
-
-  // changeOrigin: true is REQUIRED so Render knows which web service to route to internally
-  proxy.web(req, res, { target: target, changeOrigin: true });
+// Prevent duplicate CORS headers from the backend
+proxy.on('proxyRes', (proxyRes, req, res) => {
+  delete proxyRes.headers['access-control-allow-origin'];
+  delete proxyRes.headers['access-control-allow-credentials'];
+  delete proxyRes.headers['access-control-allow-methods'];
+  delete proxyRes.headers['access-control-allow-headers'];
 });
 
-// Failsafe for mid-flight drops during routing
+// Handle Proxy Errors gracefully
 proxy.on('error', (err, req, res) => {
   console.error(`[Proxy Error] Connection failed:`, err.message);
   if (!res.headersSent) {
@@ -65,9 +51,35 @@ proxy.on('error', (err, req, res) => {
   }
 });
 
-// Render assigns a dynamic port, default to 4000 locally
-const PORT = process.env.PORT || 4000;
+const server = http.createServer((req, res) => {
+  // 1. Force CORS directly on the Load Balancer for every request
+  const origin = 'https://stream-it-indol.vercel.app';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  // 2. Intercept Preflight OPTIONS request and approve it instantly
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    return res.end();
+  }
+
+  if (activeServers.length === 0) {
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ message: "CRITICAL: All backend servers are down!" }));
+  }
+
+  const target = activeServers[currentIndex % activeServers.length];
+  currentIndex++;
+
+  console.log(`[Load Balancer] Routing ${req.method} request to: ${target}`);
+  
+  proxy.web(req, res, { target: target, changeOrigin: true });
+});
+
+const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
-  console.log(`Smart Node.js Load Balancer is running on port ${PORT}!`);
-  checkServers(); // Initialize states immediately
+  console.log(`🚀 Smart Load Balancer running on port ${PORT}`);
+  checkServers(); 
 });
