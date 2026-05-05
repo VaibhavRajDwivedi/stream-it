@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -15,6 +15,9 @@ export default function SignupPage() {
   const { signup, isSigningUp, authUser } = useAuthStore();
   const router = useRouter();
 
+  // Instant synchronous lock to prevent rapid double-click API spam
+  const isSubmittingRef = useRef(false);
+
   // Evaluates session context enforcing redirect flow
   useEffect(() => {
     if (authUser) {
@@ -24,9 +27,20 @@ export default function SignupPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isSigningUp) return;
-    // Dispatches state bridging frontend UI to logical store mechanisms
-    await signup(formData);
+    
+    // Block execution if Zustand is loading OR if the instant lock is active
+    if (isSigningUp || isSubmittingRef.current) return;
+    
+    // Instantly lock the function before awaiting network calls
+    isSubmittingRef.current = true;
+    
+    try {
+      // Dispatches state bridging frontend UI to logical store mechanisms
+      await signup(formData);
+    } finally {
+      // Release the lock when the network call concludes (success or failure)
+      isSubmittingRef.current = false;
+    }
   };
 
   const handleChange = (e) => {
