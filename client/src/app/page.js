@@ -4,17 +4,24 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import useVideoStore from '@/store/useVideoStore'; 
 import { useAuthStore } from '@/store/useAuthStore';
+import { useRef } from 'react';
 
 export default function Home() {
-  // Injects logic handlers and session state
-  const { fetchHomeFeed } = useVideoStore();
-  const { authUser } = useAuthStore();
+  // Injects logic handlers and session state using selectors to prevent unnecessary re-renders
+  const fetchHomeFeed = useVideoStore((state) => state.fetchHomeFeed);
+  const authUser = useAuthStore((state) => state.authUser);
   
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const lastFetchedUser = useRef(undefined);
 
   // Orchestrates feed generation linked to authentication mutation events
   useEffect(() => {
+    // Prevent infinite loops by checking if we already fetched for this specific user
+    const currentUserId = authUser?.id || null;
+    if (lastFetchedUser.current === currentUserId) return;
+    lastFetchedUser.current = currentUserId;
+
     const loadFeed = async () => {
       setLoading(true);
       const data = await fetchHomeFeed();

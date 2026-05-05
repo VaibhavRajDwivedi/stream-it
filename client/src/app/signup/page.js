@@ -24,6 +24,7 @@ export default function SignupPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSigningUp) return;
     // Dispatches state bridging frontend UI to logical store mechanisms
     await signup(formData);
   };
