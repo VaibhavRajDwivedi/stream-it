@@ -3,55 +3,48 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 function VelocityLogo() {
   return (
-    <svg
-      width="148"
-      height="36"
-      viewBox="0 0 148 36"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+    <span
       aria-label="StreamIt"
+      style={{ display: 'flex', alignItems: 'center', gap: '10px', userSelect: 'none' }}
     >
-      <defs>
-        <linearGradient id="vel-grad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#E50914" />
-          <stop offset="100%" stopColor="#FF4500" />
-        </linearGradient>
-      </defs>
-
-      {/* Icon box */}
-      <rect width="32" height="36" rx="5" fill="#0f0f0f" />
-
-      {/* Three speed slashes */}
-      <line x1="7"  y1="27" x2="16" y2="9"  stroke="url(#vel-grad)" strokeWidth="3"   strokeLinecap="round" />
-      <line x1="14" y1="27" x2="23" y2="9"  stroke="url(#vel-grad)" strokeWidth="3"   strokeLinecap="round" opacity="0.6" />
-      <line x1="21" y1="27" x2="30" y2="9"  stroke="url(#vel-grad)" strokeWidth="3"   strokeLinecap="round" opacity="0.25" />
-
-      {/* Wordmark — stacked */}
-      <text
-        x="40" y="22"
-        fontFamily="'Impact', 'Arial Narrow', sans-serif"
-        fontSize="20"
-        fontWeight="900"
-        fill="white"
-        letterSpacing="0.5"
+      {/* Icon box with speed slashes */}
+      <svg
+        width="32"
+        height="36"
+        viewBox="0 0 32 36"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
       >
-        STREAM
-      </text>
-      <text
-        x="41" y="33"
-        fontFamily="'Impact', 'Arial Narrow', sans-serif"
-        fontSize="9"
-        fontWeight="400"
-        fill="#E50914"
-        letterSpacing="7.5"
+        <defs>
+          <linearGradient id="vel-grad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#E50914" />
+            <stop offset="100%" stopColor="#FF4500" />
+          </linearGradient>
+        </defs>
+        <rect width="32" height="36" rx="5" fill="#0f0f0f" />
+        <line x1="7"  y1="27" x2="16" y2="9"  stroke="url(#vel-grad)" strokeWidth="3" strokeLinecap="round" />
+        <line x1="14" y1="27" x2="23" y2="9"  stroke="url(#vel-grad)" strokeWidth="3" strokeLinecap="round" opacity="0.6" />
+        <line x1="21" y1="27" x2="30" y2="9"  stroke="url(#vel-grad)" strokeWidth="3" strokeLinecap="round" opacity="0.25" />
+      </svg>
+
+      {/* Wordmark — inline with IT in red */}
+      <span
+        style={{
+          fontFamily: "'Impact', 'Arial Narrow', sans-serif",
+          fontSize: '22px',
+          fontWeight: '900',
+          letterSpacing: '0.5px',
+          lineHeight: 1,
+        }}
       >
-        IT
-      </text>
-    </svg>
+        <span style={{ color: '#ffffff' }}>STREAM</span>
+        <span style={{ color: '#E50914' }}>IT</span>
+      </span>
+    </span>
   );
 }
 
@@ -87,8 +80,12 @@ function PlusIcon() {
 export default function Navbar() {
   const { authUser, logout } = useAuthStore();
   const router = useRouter();
+  const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
   const [focused, setFocused] = useState(false);
+
+  // Detect auth pages to switch to centered minimal layout
+  const isAuthPage = pathname === '/login' || pathname === '/signup';
 
   const handleLogout = async () => {
     await logout();
@@ -127,6 +124,11 @@ export default function Navbar() {
           display: flex;
           align-items: center;
           gap: 20px;
+        }
+
+        /* Auth-page layout: center the logo, no other content */
+        .si-inner--auth {
+          justify-content: center;
         }
 
         /* Logo */
@@ -322,72 +324,76 @@ export default function Navbar() {
       `}</style>
 
       <nav className="si-nav">
-        <div className="si-inner">
+        <div className={`si-inner${isAuthPage ? ' si-inner--auth' : ''}`}>
 
-          {/* Logo */}
+          {/* Logo — centered on auth pages, left-aligned otherwise */}
           <Link href="/" className="si-logo">
             <VelocityLogo />
           </Link>
 
-          {/* Search */}
-          <div className="si-search">
-            <form
-              onSubmit={handleSearch}
-              className={focused ? 'focused' : ''}
-            >
-              <input
-                type="text"
-                placeholder="Search videos"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                aria-label="Search"
-              />
-              <button type="submit" title="Search">
-                <SearchIcon />
-              </button>
-            </form>
-          </div>
-
-          {/* Right-side actions */}
-          <div className="si-actions">
-            {authUser ? (
-              <>
-                {/* Watch History */}
-                <Link
-                  href="/history"
-                  className="si-icon-btn"
-                  title="Watch History"
-                >
-                  <HistoryIcon />
-                </Link>
-
-                {/* Create */}
-                <Link href="/upload" className="si-create">
-                  <PlusIcon />
-                  <span className="si-create-label">Create</span>
-                </Link>
-
-                <div className="si-divider" />
-
-                {/* Avatar */}
-                <Link href="/profile" className="si-avatar" title="Profile">
-                  {authUser.name?.charAt(0).toUpperCase() || 'U'}
-                </Link>
-
-                {/* Logout */}
-                <button onClick={handleLogout} className="si-logout">
-                  Logout
+          {/* Search — hidden on auth pages */}
+          {!isAuthPage && (
+            <div className="si-search">
+              <form
+                onSubmit={handleSearch}
+                className={focused ? 'focused' : ''}
+              >
+                <input
+                  type="text"
+                  placeholder="Search videos"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setFocused(true)}
+                  onBlur={() => setFocused(false)}
+                  aria-label="Search"
+                />
+                <button type="submit" title="Search">
+                  <SearchIcon />
                 </button>
-              </>
-            ) : (
-              <>
-                <Link href="/login" className="si-login">Log in</Link>
-                <Link href="/signup" className="si-signup">Sign up</Link>
-              </>
-            )}
-          </div>
+              </form>
+            </div>
+          )}
+
+          {/* Right-side actions — hidden on auth pages */}
+          {!isAuthPage && (
+            <div className="si-actions">
+              {authUser ? (
+                <>
+                  {/* Watch History */}
+                  <Link
+                    href="/history"
+                    className="si-icon-btn"
+                    title="Watch History"
+                  >
+                    <HistoryIcon />
+                  </Link>
+
+                  {/* Create */}
+                  <Link href="/upload" className="si-create">
+                    <PlusIcon />
+                    <span className="si-create-label">Create</span>
+                  </Link>
+
+                  <div className="si-divider" />
+
+                  {/* Avatar */}
+                  <Link href="/profile" className="si-avatar" title="Profile">
+                    {authUser.name?.charAt(0).toUpperCase() || 'U'}
+                  </Link>
+
+                  {/* Logout */}
+                  <button onClick={handleLogout} className="si-logout">
+                    Logout
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link href="/login" className="si-login">Log in</Link>
+                  <Link href="/signup" className="si-signup">Sign up</Link>
+                </>
+              )}
+            </div>
+          )}
 
         </div>
       </nav>
