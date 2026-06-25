@@ -55,8 +55,10 @@ const checkServers = () => {
   });
 };
 
-// Run the health check every 10 seconds
-setInterval(checkServers, 10000);
+// Run the health check every 60 seconds to avoid Render's platform-level IP rate limiting.
+// All health check requests originate from the load balancer's single IP, so firing them
+// every 10s accumulates request counts at Render's Cloudflare edge, causing 429 errors.
+setInterval(checkServers, 60000);
 
 // Prevent duplicate CORS headers from the backend
 proxy.on('proxyRes', (proxyRes, req, res) => {
