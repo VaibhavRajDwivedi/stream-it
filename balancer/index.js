@@ -21,7 +21,13 @@ const checkServers = () => {
   ALL_SERVERS.forEach((serverUrl) => {
     if (!serverUrl) return; 
 
-    const req = https.get(serverUrl, (res) => {
+    const options = {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    };
+
+    const req = https.get(serverUrl, options, (res) => {
       res.resume(); // Discard the body to free the socket and prevent memory/socket leaks
 
       console.log(`[Health Check Result] ${serverUrl} status: ${res.statusCode}`);

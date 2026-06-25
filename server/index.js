@@ -26,6 +26,10 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
+app.get('/', (req, res) => {
+  res.status(200).json({ status: "healthy" });
+});
+
 app.use('/users', userRoutes);
 app.use('/videos', videoRoutes);
 app.use('/comments', commentRoutes);
