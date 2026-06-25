@@ -24,6 +24,8 @@ const checkServers = () => {
     const req = https.get(serverUrl, (res) => {
       res.resume(); // Discard the body to free the socket and prevent memory/socket leaks
 
+      console.log(`[Health Check Result] ${serverUrl} status: ${res.statusCode}`);
+
       // If Render returns a 5xx error, the server is down or sleeping
       if (res.statusCode >= 500) {
         if (activeServers.includes(serverUrl)) {
