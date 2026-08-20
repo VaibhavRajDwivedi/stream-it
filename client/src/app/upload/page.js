@@ -10,9 +10,28 @@ export default function UploadPage() {
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [tags, setTags] = useState([]);
+  const [tagInput, setTagInput] = useState('');
   const [uploading, setUploading] = useState(false);
   const [thumbnail, setThumbnail] = useState(null);
   const router = useRouter();
+
+  const handleTagKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const val = tagInput.trim().toLowerCase().replace(/,/g, '');
+      if (val && !tags.includes(val) && tags.length < 10) {
+        setTags([...tags, val]);
+      }
+      setTagInput('');
+    } else if (e.key === 'Backspace' && tagInput === '' && tags.length > 0) {
+      setTags(tags.slice(0, -1));
+    }
+  };
+
+  const removeTag = (tagToRemove) => {
+    setTags(tags.filter(t => t !== tagToRemove));
+  };
 
   const { authUser } = useAuthStore(); 
 
@@ -59,7 +78,8 @@ export default function UploadPage() {
         description: description,
         videoUrl: videoUrl,
         thumbnailUrl: thumbUrl, // Passes public image source link
-        userId: authUser.id 
+        userId: authUser.id,
+        tags: tags, // Sends normalised tag array
       });
 
       alert("Video published successfully! 🚀");
@@ -98,6 +118,41 @@ export default function UploadPage() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <label className="text-sm font-bold text-zinc-400">Tags</label>
+            <span className="text-xs text-zinc-600">{tags.length}/10</span>
+          </div>
+          <div className="w-full min-h-[48px] bg-zinc-800 border border-zinc-700 rounded-lg p-2 flex flex-wrap gap-2 focus-within:border-red-500 transition">
+            {tags.map(tag => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1 bg-zinc-700 text-zinc-200 text-xs px-2.5 py-1 rounded-full"
+              >
+                #{tag}
+                <button
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  className="text-zinc-400 hover:text-white leading-none transition"
+                  aria-label={`Remove tag ${tag}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={handleTagKeyDown}
+              placeholder={tags.length === 0 ? "e.g. music, vlog — press Enter to add" : ""}
+              disabled={tags.length >= 10}
+              className="flex-1 min-w-[160px] bg-transparent text-white text-sm outline-none placeholder-zinc-600 disabled:cursor-not-allowed"
+            />
+          </div>
+          <p className="text-xs text-zinc-600 mt-1.5">Press Enter or comma to add a tag. Backspace removes the last one.</p>
         </div>
 
         {/* Image selection utility node */}

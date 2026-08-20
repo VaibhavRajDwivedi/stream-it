@@ -219,6 +219,20 @@ export default function WatchPage() {
             <p className="text-sm text-zinc-200 whitespace-pre-wrap">
               {video.description ? video.description : "No description provided."}
             </p>
+
+            {/* Tags — only rendered when the video has tags; old videos silently skip this */}
+            {video.tags?.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-zinc-700/40">
+                {video.tags.map(tag => (
+                  <span
+                    key={tag}
+                    className="text-xs px-2.5 py-1 rounded-full bg-zinc-700/60 text-zinc-400 border border-zinc-700"
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* String interaction segment */}
