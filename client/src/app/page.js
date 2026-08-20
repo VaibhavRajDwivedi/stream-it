@@ -1,29 +1,38 @@
-'use client'; 
+'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import useVideoStore from '@/store/useVideoStore'; 
+import { useRouter } from 'next/navigation';
+import useVideoStore from '@/store/useVideoStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useRef } from 'react';
+import VideoCardSkeleton from '@/components/VideoCardSkeleton';
+
+// Number of skeleton cards to show — matches the typical grid fill
+const SKELETON_COUNT = 12;
 
 export default function Home() {
-  // Injects logic handlers and session state using selectors to prevent unnecessary re-renders
   const fetchHomeFeed = useVideoStore((state) => state.fetchHomeFeed);
   const authUser = useAuthStore((state) => state.authUser);
-  
+  const router = useRouter();
+
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Track how many thumbnails have finished loading
+  const [loadedCount, setLoadedCount] = useState(0);
   const lastFetchedUser = useRef(undefined);
 
-  // Orchestrates feed generation linked to authentication mutation events
+  const allThumbsLoaded = !loading && loadedCount >= videos.length && videos.length > 0;
+  const showSkeleton = loading || (!allThumbsLoaded && videos.length > 0);
+
   useEffect(() => {
-    // Prevent infinite loops by checking if we already fetched for this specific user
     const currentUserId = authUser?.id || null;
     if (lastFetchedUser.current === currentUserId) return;
     lastFetchedUser.current = currentUserId;
 
     const loadFeed = async () => {
       setLoading(true);
+      setLoadedCount(0);
       const data = await fetchHomeFeed();
       setVideos(data || []);
       setLoading(false);
@@ -32,51 +41,58 @@ export default function Home() {
     loadFeed();
   }, [authUser, fetchHomeFeed]);
 
-  if (loading) return <div className="p-10 text-center text-xl text-white min-h-screen bg-black">Loading your personalized feed... 🍿</div>;
+  const handleThumbLoad = () => {
+    setLoadedCount((c) => c + 1);
+  };
 
   return (
-    // Enforces strict dark mode constraint
     <div className="p-6 md:p-10 min-h-screen bg-black text-white">
       <div className="max-w-7xl mx-auto">
-        
-        {/* Status-bound headline rendering */}
+
         <h1 className="text-2xl font-bold mb-6">
-          {authUser ? "Recommended for You" : "Trending Now"}
+          {authUser ? 'Recommended for You' : 'Trending Now'}
         </h1>
 
-        {videos.length === 0 ? (
-          <p className="text-zinc-500">No videos found. Upload something!</p>
-        ) : (
+        {/* ── Skeleton grid ── */}
+        {showSkeleton && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {/* Iterative grid mapping */}
+            {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
+              <VideoCardSkeleton key={i} />
+            ))}
+          </div>
+        )}
+
+        {/* ── Real grid — hidden (but rendered) until all thumbs load ── */}
+        {!loading && videos.length > 0 && (
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+            style={{ display: showSkeleton ? 'none' : 'grid' }}
+          >
             {videos.map((video) => (
               <Link href={`/watch/${video.id}`} key={video.id}>
                 <div className="group cursor-pointer">
-                  
-                  {/* Image wrapper constraints */}
+
                   <div className="relative w-full aspect-video mb-3 bg-zinc-800 rounded-xl overflow-hidden shadow-sm">
-                    <img 
-                      src={video.thumbnailUrl} 
-                      alt={video.title} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" 
+                    <img
+                      src={video.thumbnailUrl}
+                      alt={video.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                      onLoad={handleThumbLoad}
+                      onError={handleThumbLoad} // Count errors too so grid isn't stuck
                     />
                   </div>
-                  {/* Ends image bounds */}
-                  
-                  {/* Layout bounding wrapper */}
+
                   <div className="flex gap-3 pr-2">
-                    {/* Fallback graphical string avatar */}
                     <div className="w-9 h-9 rounded-full bg-zinc-800 shrink-0 flex items-center justify-center font-bold text-sm mt-1">
-                      {/* Resolves property extraction between flat SQL maps and ORM relation bindings */}
-                      {(video.userName || video.user?.name || "U").charAt(0).toUpperCase()}
+                      {(video.userName || video.user?.name || 'U').charAt(0).toUpperCase()}
                     </div>
-                    
+
                     <div>
                       <h2 className="text-base font-semibold leading-tight mb-1 line-clamp-2 text-white group-hover:text-zinc-300 transition-colors">
                         {video.title}
                       </h2>
                       <p className="text-zinc-400 text-sm">
-                        {video.userName || video.user?.name || "Unknown Creator"}
+                        {video.userName || video.user?.name || 'Unknown Creator'}
                       </p>
                     </div>
                   </div>
@@ -86,6 +102,12 @@ export default function Home() {
             ))}
           </div>
         )}
+
+        {/* ── Empty state ── */}
+        {!loading && videos.length === 0 && (
+          <p className="text-zinc-500">No videos found. Upload something!</p>
+        )}
+
       </div>
     </div>
   );
