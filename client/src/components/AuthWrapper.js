@@ -9,10 +9,10 @@ export default function AuthWrapper({ children }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Triggers immediate authentication verification on mount
+  // Triggers immediate authentication verification on mount (once only)
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Evaluates routing constraints based on state mutations
   useEffect(() => {
