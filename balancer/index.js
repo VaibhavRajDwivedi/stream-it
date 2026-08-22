@@ -32,14 +32,22 @@ const checkServers = () => {
 
       console.log(`[Health Check Result] ${serverUrl} status: ${res.statusCode}`);
 
-      // If Render returns a 5xx error, the server is down or sleeping
       if (res.statusCode >= 500) {
+        // 5xx = server is genuinely down or sleeping
         if (activeServers.includes(serverUrl)) {
           console.log(`[Health Check] Server returning ${res.statusCode}: ${serverUrl}. Removing!`);
           activeServers = activeServers.filter(s => s !== serverUrl);
         }
+      } else if (res.statusCode === 429) {
+        // 429 = Render's edge is rate-limiting our health check IP.
+        // The server itself is ALIVE — do NOT evict it.
+        // Just log and leave it in the pool.
+        console.log(`[Health Check] Got 429 from ${serverUrl} — rate limited by edge, server is alive. Keeping in pool.`);
+        if (!activeServers.includes(serverUrl)) {
+          activeServers.push(serverUrl);
+        }
       } else {
-        // Any 2xx, 3xx, or 4xx means the Express app is successfully running
+        // 2xx, 3xx, other 4xx = Express app is running fine
         if (!activeServers.includes(serverUrl)) {
           console.log(`[Health Check] Server recovered: ${serverUrl}`);
           activeServers.push(serverUrl);
@@ -63,10 +71,10 @@ const checkServers = () => {
   });
 };
 
-// Run the health check every 60 seconds to avoid Render's platform-level IP rate limiting.
-// All health check requests originate from the load balancer's single IP, so firing them
-// every 10s accumulates request counts at Render's Cloudflare edge, causing 429 errors.
-setInterval(checkServers, 60000);
+// Run the health check every 120 seconds to avoid Render's platform-level IP rate limiting.
+// All health check requests originate from the load balancer's single IP. 
+// 429 from Render means the server IS alive — the edge is rate-limiting our checker IP only.
+setInterval(checkServers, 120000);
 
 // Prevent duplicate CORS headers from the backend
 proxy.on('proxyRes', (proxyRes, req, res) => {
