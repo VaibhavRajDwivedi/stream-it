@@ -39,7 +39,7 @@ export default function Home() {
     };
 
     loadFeed();
-  }, [authUser, fetchHomeFeed]);
+  }, [authUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleThumbLoad = () => {
     setLoadedCount((c) => c + 1);

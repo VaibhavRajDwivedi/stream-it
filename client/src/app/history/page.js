@@ -27,7 +27,7 @@ export default function HistoryPage() {
     };
 
     loadHistory();
-  }, [authUser, fetchWatchHistory, router]);
+  }, [authUser?.id, router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Invokes local array trimming and external database propagation
   const handleDelete = async (e, videoId) => {

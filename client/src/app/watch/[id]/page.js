@@ -53,7 +53,7 @@ export default function WatchPage() {
     };
 
     loadData();
-  }, [videoId, fetchVideoById, fetchComments, fetchVideoReactions]);
+  }, [videoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Enforces immutable chronological view tracking
   useEffect(() => {
@@ -61,7 +61,7 @@ export default function WatchPage() {
       logWatchHistory(videoId);
       hasLoggedHistory.current = true;
     }
-  }, [videoId, authUser, logWatchHistory]);
+  }, [videoId, authUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Records absolute entity hit rate
   useEffect(() => {
@@ -69,7 +69,7 @@ export default function WatchPage() {
       logVideoView(videoId);
       hasLoggedView.current = true; 
     }
-  }, [videoId, logVideoView]);
+  }, [videoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Coordinates optimistic UI updates for relational inputs
   const handleReaction = async (type) => {
