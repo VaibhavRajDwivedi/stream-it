@@ -10,34 +10,24 @@ export const useAuthStore = create((set) => ({
   isLoggingOut: false,
 
   checkAuth: async () => {
-    console.log('[AuthStore] checkAuth() called — stack:', new Error().stack?.split('\n').slice(1, 4).join(' | '));
+    set({ isCheckingAuth: true }); // only 1 set() before the await
     try {
-      set({ isCheckingAuth: true });
-      console.log('[AuthStore] checkAuth: set isCheckingAuth=true');
       const res = await axiosInstance.get("/auth/check");
-      console.log('[AuthStore] checkAuth: /auth/check response received, setting authUser:', res.data?.id);
-      set({ authUser: res.data });
+      set({ authUser: res.data, isCheckingAuth: false }); // batch: 1 set() instead of 2
     } catch (error) {
-      console.log(`[AuthStore] checkAuth: Error — ${error.response?.status} ${error.message}`);
-      set({ authUser: null });
-    } finally {
-      set({ isCheckingAuth: false });
-      console.log('[AuthStore] checkAuth: set isCheckingAuth=false (done)');
+      console.log(`Error in Auth Check: ${error.response?.status} ${error.message}`);
+      set({ authUser: null, isCheckingAuth: false }); // batch: 1 set() instead of 2
     }
   },
 
   signup: async (formData) => {
-    console.log('[AuthStore] signup() called');
     set({ isSigningUp: true });
     try {
       const res = await axiosInstance.post("/auth/signup", formData);
-      console.log('[AuthStore] signup: success, authUser:', res.data?.id);
-      set({ authUser: res.data });
+      set({ authUser: res.data, isSigningUp: false }); // batch to reduce renders
       toast.success("Account created successfully");
     } catch (error) {
-      console.error('[AuthStore] signup: FAILED —', error.response?.status, error.response?.data?.message || error.message);
       toast.error(error.response?.data?.message || "Signup failed");
-    } finally {
       set({ isSigningUp: false });
     }
   },
@@ -46,11 +36,10 @@ export const useAuthStore = create((set) => ({
     set({ isLoggingIn: true });
     try {
       const res = await axiosInstance.post("/auth/login", data);
-      set({ authUser: res.data });
+      set({ authUser: res.data, isLoggingIn: false }); // batch to reduce renders
       toast.success("Successfully Logged in");
     } catch (error) {
       toast.error(error.response?.data?.message || "Login failed");
-    } finally {
       set({ isLoggingIn: false });
     }
   },
@@ -60,10 +49,9 @@ export const useAuthStore = create((set) => ({
     try {
       await axiosInstance.post("/auth/logout");
       toast.success("Logged Out Successfully");
-      set({ authUser: null });
+      set({ authUser: null, isLoggingOut: false }); // batch to reduce renders
     } catch (error) {
       toast.error(error.response?.data?.message || "Logout failed");
-    } finally {
       set({ isLoggingOut: false });
     }
   },

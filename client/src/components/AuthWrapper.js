@@ -16,7 +16,6 @@ export default function AuthWrapper({ children }) {
 
   // Evaluates routing constraints based on state mutations
   useEffect(() => {
-    console.log('[AuthWrapper] routing useEffect fired — isCheckingAuth:', isCheckingAuth, '| authUser id:', authUser?.id, '| pathname:', pathname);
     // Halts execution during active network verification
     if (isCheckingAuth) return;
 

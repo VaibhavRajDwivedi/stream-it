@@ -1,5 +1,4 @@
 import http from 'http';
-import https from 'https';
 import httpProxy from 'http-proxy';
 import dotenv from 'dotenv';
 
@@ -12,69 +11,29 @@ const proxy = httpProxy.createProxyServer({
 const ALL_SERVERS = [
   process.env.SERVER_1,
   process.env.SERVER_2
-];
+].filter(Boolean); // Filter out any undefined env vars
 
 let activeServers = [...ALL_SERVERS]; 
 let currentIndex = 0;
 
-const checkServers = () => {
-  ALL_SERVERS.forEach((serverUrl) => {
-    if (!serverUrl) return; 
 
-    const options = {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
-    };
+// REMOVED: Proactive health checks against Render URLs.
+// Every health check request hits the same Render Cloudflare edge rate limit quota
+// as real user traffic. With 2 servers × every 120s, that's 60 req/hr of wasted quota.
+//
+// Replaced with REACTIVE recovery: servers are evicted only when a real proxied
+// request fails (network error / 5xx from proxy), and re-added when the next
+// real request to that server succeeds.
 
-    const req = https.get(serverUrl, options, (res) => {
-      res.resume(); // Discard the body to free the socket and prevent memory/socket leaks
-
-      console.log(`[Health Check Result] ${serverUrl} status: ${res.statusCode}`);
-
-      if (res.statusCode >= 500) {
-        // 5xx = server is genuinely down or sleeping
-        if (activeServers.includes(serverUrl)) {
-          console.log(`[Health Check] Server returning ${res.statusCode}: ${serverUrl}. Removing!`);
-          activeServers = activeServers.filter(s => s !== serverUrl);
-        }
-      } else if (res.statusCode === 429) {
-        // 429 = Render's edge is rate-limiting our health check IP.
-        // The server itself is ALIVE — do NOT evict it.
-        // Just log and leave it in the pool.
-        console.log(`[Health Check] Got 429 from ${serverUrl} — rate limited by edge, server is alive. Keeping in pool.`);
-        if (!activeServers.includes(serverUrl)) {
-          activeServers.push(serverUrl);
-        }
-      } else {
-        // 2xx, 3xx, other 4xx = Express app is running fine
-        if (!activeServers.includes(serverUrl)) {
-          console.log(`[Health Check] Server recovered: ${serverUrl}`);
-          activeServers.push(serverUrl);
-        }
-      }
-    });
-
-    // Catches network failures and our manual timeout destruction below
-    req.on('error', (err) => {
-      if (activeServers.includes(serverUrl)) {
-        console.log(`[Health Check] Server dead or sleeping: ${serverUrl}. Removing!`);
-        activeServers = activeServers.filter(s => s !== serverUrl);
-      }
-    });
-
-    // CRITICAL: If a Render server is sleeping, it hangs. 
-    // We give it 4 seconds to respond. If it doesn't, we consider it dead.
-    req.setTimeout(4000, () => {
-      req.destroy(); 
-    });
-  });
+// Re-add a server to the pool after a delay when it may have recovered
+const scheduleRecoveryCheck = (serverUrl) => {
+  setTimeout(() => {
+    if (!activeServers.includes(serverUrl)) {
+      console.log(`[Recovery] Re-adding ${serverUrl} to pool after cooldown`);
+      activeServers.push(serverUrl);
+    }
+  }, 60000); // retry after 60 seconds
 };
-
-// Run the health check every 120 seconds to avoid Render's platform-level IP rate limiting.
-// All health check requests originate from the load balancer's single IP. 
-// 429 from Render means the server IS alive — the edge is rate-limiting our checker IP only.
-setInterval(checkServers, 120000);
 
 // Prevent duplicate CORS headers from the backend
 proxy.on('proxyRes', (proxyRes, req, res) => {
@@ -84,9 +43,21 @@ proxy.on('proxyRes', (proxyRes, req, res) => {
   delete proxyRes.headers['access-control-allow-headers'];
 });
 
-// Handle Proxy Errors gracefully
+// Handle Proxy Errors gracefully — evict server and schedule re-addition
 proxy.on('error', (err, req, res) => {
-  console.error(`[Proxy Error] Connection failed:`, err.message);
+  console.error(`[Proxy Error] Connection failed to target:`, err.message);
+
+  // Evict the failing server from the pool
+  const failedTarget = res?.req?.socket?._host || null;
+  if (failedTarget) {
+    const failedServer = ALL_SERVERS.find(s => s.includes(failedTarget));
+    if (failedServer && activeServers.includes(failedServer)) {
+      console.log(`[Proxy] Evicting ${failedServer} due to connection failure`);
+      activeServers = activeServers.filter(s => s !== failedServer);
+      scheduleRecoveryCheck(failedServer);
+    }
+  }
+
   if (!res.headersSent) {
     res.writeHead(502, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ message: "Bad Gateway" }));
@@ -123,5 +94,6 @@ const server = http.createServer((req, res) => {
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
   console.log(`🚀 Smart Load Balancer running on port ${PORT}`);
-  checkServers(); 
+  // No startup health check — reactive eviction handles server failures
+  console.log(`[Balancer] Active servers: ${activeServers.join(', ')}`);
 });

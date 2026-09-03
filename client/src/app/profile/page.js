@@ -14,7 +14,6 @@ export default function ProfilePage() {
 
   // Restricts endpoint logic strictly to active sessions
   useEffect(() => {
-    console.log('[ProfilePage] useEffect fired — authUser id:', authUser?.id, '| authUser ref:', authUser);
     if (!authUser) {
       router.push('/login');
       return;
@@ -32,7 +31,7 @@ export default function ProfilePage() {
     };
 
     fetchMyVideos();
-  }, [authUser, router]);
+  }, [authUser?.id, router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Resolves relational deletions
   const handleDelete = async (videoId) => {
