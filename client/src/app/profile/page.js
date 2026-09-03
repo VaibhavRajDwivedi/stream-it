@@ -14,6 +14,7 @@ export default function ProfilePage() {
 
   // Restricts endpoint logic strictly to active sessions
   useEffect(() => {
+    console.log('[ProfilePage] useEffect fired — authUser id:', authUser?.id, '| authUser ref:', authUser);
     if (!authUser) {
       router.push('/login');
       return;

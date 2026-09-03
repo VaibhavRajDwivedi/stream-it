@@ -10,25 +10,32 @@ export const useAuthStore = create((set) => ({
   isLoggingOut: false,
 
   checkAuth: async () => {
+    console.log('[AuthStore] checkAuth() called — stack:', new Error().stack?.split('\n').slice(1, 4).join(' | '));
     try {
       set({ isCheckingAuth: true });
+      console.log('[AuthStore] checkAuth: set isCheckingAuth=true');
       const res = await axiosInstance.get("/auth/check");
+      console.log('[AuthStore] checkAuth: /auth/check response received, setting authUser:', res.data?.id);
       set({ authUser: res.data });
     } catch (error) {
-      console.log(`Error in Auth Check : ${error}`);
+      console.log(`[AuthStore] checkAuth: Error — ${error.response?.status} ${error.message}`);
       set({ authUser: null });
     } finally {
       set({ isCheckingAuth: false });
+      console.log('[AuthStore] checkAuth: set isCheckingAuth=false (done)');
     }
   },
 
   signup: async (formData) => {
+    console.log('[AuthStore] signup() called');
     set({ isSigningUp: true });
     try {
       const res = await axiosInstance.post("/auth/signup", formData);
+      console.log('[AuthStore] signup: success, authUser:', res.data?.id);
       set({ authUser: res.data });
       toast.success("Account created successfully");
     } catch (error) {
+      console.error('[AuthStore] signup: FAILED —', error.response?.status, error.response?.data?.message || error.message);
       toast.error(error.response?.data?.message || "Signup failed");
     } finally {
       set({ isSigningUp: false });
